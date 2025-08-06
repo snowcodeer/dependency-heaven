@@ -16,7 +16,8 @@ interface VisualizationControlsProps {
       { id: 'all', label: 'Show All' },
       { id: 'conflicts', label: 'Conflicts' },
       { id: 'security', label: 'Security' },
-      { id: 'critical', label: 'Critical' }
+      { id: 'critical', label: 'Critical' },
+      { id: 'shared', label: 'Shared' }
     ]
   
     return (
@@ -72,11 +73,19 @@ interface VisualizationControlsProps {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-orange-500" />
-              <span>Conflict</span>
+              <span>Shared</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500" />
               <span>Security</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span>Conflict</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-300" />
+              <span>Conflict-Prone</span>
             </div>
           </div>
         </div>

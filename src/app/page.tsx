@@ -13,6 +13,7 @@ const SAMPLE_PACKAGES = [
     name: 'Frontend App',
     content: JSON.stringify({
       "name": "frontend-app",
+      "displayName": "Frontend App",
       "version": "1.0.0",
       "dependencies": {
         "react": "^18.2.0",
@@ -34,6 +35,7 @@ const SAMPLE_PACKAGES = [
     name: 'Backend API',
     content: JSON.stringify({
       "name": "backend-api",
+      "displayName": "Backend API",
       "version": "1.0.0",
       "dependencies": {
         "express": "^4.18.0",
@@ -55,6 +57,7 @@ const SAMPLE_PACKAGES = [
     name: 'Shared Library',
     content: JSON.stringify({
       "name": "shared-utils",
+      "displayName": "Shared Library",
       "version": "1.0.0",
       "dependencies": {
         "zod": "^3.22.0",
@@ -79,6 +82,9 @@ export default function Home() {
   const [combinedData, setCombinedData] = useState<CombinedData | null>(null)
   const [allAnalyzedData, setAllAnalyzedData] = useState<(AnalyzedPackage | null)[]>([])
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [filter, setFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null)
 
   const analyzePackageData = useCallback((packageData: any, packageName: string): AnalyzedPackage => {
     const nodes: any[] = []
@@ -92,7 +98,8 @@ export default function Home() {
       type: 'main',
       version: packageData.version || '1.0.0',
       issues: [],
-      package: packageName
+      package: packageData.name || packageName, // Use actual package name from package.json
+      displayName: packageData.displayName || packageName // Use displayName if available, fallback to packageName
     })
 
     // Process dependencies
@@ -104,7 +111,7 @@ export default function Home() {
     Object.entries(deps).forEach(([name, version]) => {
       const nodeIssues: string[] = []
       if (SECURITY_RISKS.includes(name)) nodeIssues.push('security')
-      if (CONFLICT_PRONE.includes(name)) nodeIssues.push('conflict')
+      // Note: Conflict issues will be added later when we detect actual version conflicts
       
       const nodeId = `${packageName}:${name}`
       nodes.push({
@@ -113,7 +120,8 @@ export default function Home() {
         type: 'dependency',
         version: version,
         issues: nodeIssues,
-        package: packageName
+        package: packageName,
+        conflictProne: CONFLICT_PRONE.includes(name)
       })
       
       links.push({
@@ -127,7 +135,7 @@ export default function Home() {
     Object.entries(devDeps).forEach(([name, version]) => {
       const nodeIssues: string[] = []
       if (SECURITY_RISKS.includes(name)) nodeIssues.push('security')
-      if (CONFLICT_PRONE.includes(name)) nodeIssues.push('conflict')
+      // Note: Conflict issues will be added later when we detect actual version conflicts
       
       const nodeId = `${packageName}:${name}:dev`
       nodes.push({
@@ -136,7 +144,8 @@ export default function Home() {
         type: 'dev-dependency',
         version: version,
         issues: nodeIssues,
-        package: packageName
+        package: packageName,
+        conflictProne: CONFLICT_PRONE.includes(name)
       })
       
       links.push({
@@ -149,7 +158,7 @@ export default function Home() {
     // Add peer dependency nodes
     Object.entries(peerDeps).forEach(([name, version]) => {
       const nodeIssues: string[] = []
-      if (CONFLICT_PRONE.includes(name)) nodeIssues.push('conflict')
+      // Note: Conflict issues will be added later when we detect actual version conflicts
       
       const nodeId = `${packageName}:${name}:peer`
       nodes.push({
@@ -158,7 +167,8 @@ export default function Home() {
         type: 'peer-dependency',
         version: version,
         issues: nodeIssues,
-        package: packageName
+        package: packageName,
+        conflictProne: CONFLICT_PRONE.includes(name)
       })
       
       links.push({
@@ -194,59 +204,143 @@ export default function Home() {
     const allLinks: any[] = []
     const allIssues: any[] = []
     
-    // Combine all nodes and links
+    // First, collect all main package nodes
     analyzedData.forEach(data => {
       if (data) {
-        allNodes.push(...data.nodes)
-        allLinks.push(...data.links)
-        allIssues.push(...data.issues)
+        const mainNode = data.nodes.find(node => node.type === 'main')
+        if (mainNode) {
+          allNodes.push(mainNode)
+        }
       }
     })
     
     // Find cross-package dependencies (shared dependencies)
     const dependencyMap = new Map()
-    allNodes.forEach(node => {
-      if (node.type !== 'main') {
-        const depName = node.displayName
-        if (!dependencyMap.has(depName)) {
-          dependencyMap.set(depName, [])
+    const packageToMainNodeMap = new Map()
+    
+    // Build package to main node mapping
+    analyzedData.forEach(data => {
+      if (data) {
+        const mainNode = data.nodes.find(node => node.type === 'main')
+        if (mainNode) {
+          packageToMainNodeMap.set(data.packageName, mainNode.id)
         }
-        dependencyMap.get(depName).push(node)
       }
     })
     
-    // Create links between packages that share dependencies
+    // Collect all dependency nodes and group by name
+    analyzedData.forEach(data => {
+      if (data) {
+        data.nodes.forEach(node => {
+          if (node.type !== 'main') {
+            const depName = node.displayName
+            if (!dependencyMap.has(depName)) {
+              dependencyMap.set(depName, [])
+            }
+            dependencyMap.get(depName).push({
+              ...node,
+              sourcePackage: data.packageName
+            })
+          }
+        })
+      }
+    })
+    
+    // Process shared dependencies
     dependencyMap.forEach((nodes, depName) => {
       if (nodes.length > 1) {
         // Check for version conflicts
         const versions = new Set(nodes.map((n: any) => n.version))
-        if (versions.size > 1) {
+        const hasVersionConflict = versions.size > 1
+        
+        // Check for security issues
+        const hasSecurityIssue = nodes.some((n: any) => n.issues.includes('security'))
+        
+        if (hasVersionConflict) {
           allIssues.push({
             type: 'conflict',
             message: `Version conflict for ${depName} across packages: ${Array.from(versions).join(', ')}`,
-            packages: nodes.map((n: any) => n.package),
+            packages: nodes.map((n: any) => n.sourcePackage),
             severity: 'medium'
-          })
-          
-          // Mark nodes as having conflicts
-          nodes.forEach((node: any) => {
-            if (!node.issues.includes('conflict')) {
-              node.issues.push('conflict')
-            }
           })
         }
         
-        // Create cross-package dependency links
-        for (let i = 0; i < nodes.length; i++) {
-          for (let j = i + 1; j < nodes.length; j++) {
-            const hasConflict = nodes[i].issues.includes('conflict')
+        if (hasSecurityIssue) {
+          allIssues.push({
+            type: 'security',
+            message: `${depName} has known security vulnerabilities`,
+            packages: nodes.map((n: any) => n.sourcePackage),
+            severity: 'high'
+          })
+        }
+        
+        // Create a single shared dependency node
+        const sharedNodeIssues: string[] = []
+        if (hasVersionConflict) sharedNodeIssues.push('conflict')
+        if (hasSecurityIssue) sharedNodeIssues.push('security')
+        
+        // Check if any of the original nodes are conflict-prone
+        const isConflictProne = nodes.some((n: any) => n.conflictProne)
+        
+        const sharedNode = {
+          id: `shared:${depName}`,
+          displayName: depName,
+          type: 'shared-dependency',
+          version: Array.from(versions).join(' / '),
+          issues: sharedNodeIssues,
+          packages: nodes.map((n: any) => n.sourcePackage),
+          originalNodes: nodes,
+          conflictProne: isConflictProne
+        }
+        
+        allNodes.push(sharedNode)
+        
+        // Create links from each package to the shared dependency
+        nodes.forEach((node: any) => {
+          const mainNodeId = packageToMainNodeMap.get(node.sourcePackage)
+          if (mainNodeId) {
             allLinks.push({
-              source: nodes[i].id,
-              target: nodes[j].id,
-              type: hasConflict ? 'conflict' : 'shared'
+              source: mainNodeId,
+              target: sharedNode.id,
+              type: node.type,
+              originalType: node.type
             })
           }
+        })
+      } else {
+        // Single dependency - keep as is
+        const node = nodes[0]
+        allNodes.push(node)
+        
+        // Add security issues for single dependencies
+        if (node.issues.includes('security')) {
+          allIssues.push({
+            type: 'security',
+            message: `${node.displayName} has known security vulnerabilities`,
+            packages: [node.sourcePackage],
+            severity: 'high'
+          })
         }
+        
+        // Note: Single dependencies don't have version conflicts by definition
+        // since they only exist in one package
+        
+        // Create link from package to dependency
+        const mainNodeId = packageToMainNodeMap.get(node.sourcePackage)
+        if (mainNodeId) {
+          allLinks.push({
+            source: mainNodeId,
+            target: node.id,
+            type: node.type
+          })
+        }
+      }
+    })
+    
+    // Add any remaining issues from individual packages
+    analyzedData.forEach(data => {
+      if (data) {
+        allIssues.push(...data.issues)
       }
     })
     
@@ -261,6 +355,11 @@ export default function Home() {
   const handleAnalyzeAll = async () => {
     setIsAnalyzing(true)
     const newAnalyzedData: (AnalyzedPackage | null)[] = []
+    
+    // Reset filter states to default
+    setFilter('all')
+    setSearchTerm('')
+    setSelectedPackage(null)
     
     try {
       for (let i = 0; i < packages.length; i++) {
@@ -314,6 +413,12 @@ export default function Home() {
         <AnalysisPanel 
           combinedData={combinedData}
           allAnalyzedData={allAnalyzedData}
+          filter={filter}
+          setFilter={setFilter}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          selectedPackage={selectedPackage}
+          setSelectedPackage={setSelectedPackage}
         />
       ) : (
         <div className="text-center py-20 text-gray-400">

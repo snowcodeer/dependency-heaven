@@ -81,7 +81,6 @@ export function PackageInputs({
   return (
     <section className="bg-slate-800/50 rounded-xl p-8 mb-8 border-2 border-slate-700">
       <div className="flex flex-wrap gap-2 mb-6">
-      // Replace the tab button section with this:
         {packages.map((pkg, index) => (
         <div
             key={pkg.id}
@@ -111,6 +110,15 @@ export function PackageInputs({
             )}
         </div>
         ))}
+        
+        <button
+          className="flex items-center gap-2 px-5 py-3 rounded-lg transition-all duration-300 bg-green-600 hover:bg-green-500 text-white font-medium"
+          onClick={addPackage}
+          title="Add new package"
+        >
+          <span className="text-lg">+</span>
+          Add Package
+        </button>
       </div>
 
       {packages.map((pkg, index) => {
