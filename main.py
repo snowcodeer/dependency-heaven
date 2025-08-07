@@ -1,11 +1,13 @@
 # main.py
 import json
 import base64
+from typing import Dict, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 from aci import ACI
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -33,25 +35,25 @@ def get_github_repositories():
 
     print("Sending request to OpenAI")
     response = openai.chat.completions.create(
-        model="gpt-4o-2024-08-06",
-        messages=[
-            {
-                "role": "system",
+            model="gpt-4o-2024-08-06",
+            messages=[
+                {
+                    "role": "system",
                 "content": "You are a helpful assistant with access to a variety of tools.",
-            },
-            {
-                "role": "user",
+                },
+                {
+                    "role": "user",
                 "content": user_message,
-            },
-        ],
+                },
+            ],
         tools=[function_def],
         tool_choice="required",
     )
 
     tool_call = (
-        response.choices[0].message.tool_calls[0]
-        if response.choices[0].message.tool_calls
-        else None
+            response.choices[0].message.tool_calls[0]
+            if response.choices[0].message.tool_calls
+            else None
     )
 
     if tool_call:
@@ -183,6 +185,191 @@ def get_file_content(repo_name: str):
     else:
         raise Exception("No tool call generated")
 
+class CreateIssueRequest(BaseModel):
+    repo_name: str
+    issue_title: str
+    issue_description: str
+    dependency_name: str = None
+
+class SimpleCreateIssueRequest(BaseModel):
+    repo_name: str
+    issue_title: str
+    issue_description: str
+    labels: list = []  # Optional: Add labels support
+
+def create_github_issue(repo_name: str, issue_title: str, issue_description: str, labels: list = []):
+    """Create an issue in the specified GitHub repository."""
+    print("Getting function definition for GITHUB__CREATE_ISSUE")
+    function_def = aci.functions.get_definition("GITHUB__CREATE_ISSUE")
+
+    print("Sending request to OpenAI for issue creation")
+    response = openai.chat.completions.create(
+        model="gpt-4o-2024-08-06",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant with access to GitHub tools.",
+            },
+            {
+                "role": "user",
+                "content": f"Create an issue in the {repo_name} repository with title '{issue_title}' and description '{issue_description}'",
+            },
+        ],
+        tools=[function_def],
+        tool_choice="required",
+    )
+
+    tool_call = (
+        response.choices[0].message.tool_calls[0]
+        if response.choices[0].message.tool_calls
+        else None
+    )
+
+    if tool_call:
+        print("Handling function call")
+        result = aci.handle_function_call(
+            tool_call.function.name,
+            json.loads(tool_call.function.arguments),
+            linked_account_owner_id='snowcodeer',
+        )
+        print("Issue creation result:", result)
+        return result
+    else:
+        raise Exception("No tool call generated for issue creation")
+
+def create_github_issue_with_analysis(repo_name: str, issue_title: str, issue_description: str, dependency_name: str = None) -> Dict[str, Any]:
+    """
+    Create a GitHub issue with AI-enhanced analysis and recommendations.
+    
+    Args:
+        repo_name: The repository name
+        issue_title: Title of the issue
+        issue_description: Description of the issue
+        dependency_name: Optional dependency name for more specific analysis
+    
+    Returns:
+        Dict containing the created issue details and analysis
+    """
+    try:
+        print(f"Creating GitHub issue with analysis for repo: {repo_name}")
+        
+        # Get function definition
+        github_create_issue_function = aci.functions.get_definition("GITHUB__CREATE_ISSUE")
+        
+        # Generate enhanced issue content with AI analysis
+        analysis_prompt = f"""
+        Create a comprehensive GitHub issue for a dependency security/compatibility problem.
+        
+        Repository: {repo_name}
+        Issue: {issue_title}
+        Description: {issue_description}
+        Dependency: {dependency_name or 'Not specified'}
+        
+        Use your knowledge to create a well-formatted GitHub issue that includes:
+        
+        1. **Problem Summary**: Clear description of the issue
+        2. **Impact Analysis**: Potential security risks, compatibility issues, or conflicts
+        3. **Recommended Solutions**: Specific steps to fix the issue, including:
+           - Version updates if applicable
+           - Alternative packages if needed
+           - Configuration changes
+           - Security patches
+        4. **Best Practices**: General recommendations for dependency management
+        5. **Resources**: Relevant documentation or guidelines
+        
+        Format it as a proper GitHub issue with markdown formatting.
+        Make it actionable and professional.
+        
+        If this is about {dependency_name}, provide specific guidance for that package including:
+        - Common vulnerabilities and fixes
+        - Version compatibility information
+        - Migration steps if needed
+        """
+        
+        # Generate the enhanced issue content
+        print("Generating enhanced issue content with AI analysis...")
+        analysis_response = openai.chat.completions.create(
+            model="gpt-4o-2024-08-06",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a security expert and dependency management specialist. Create detailed, actionable GitHub issues with professional formatting.",
+                },
+                {
+                    "role": "user",
+                    "content": analysis_prompt,
+                },
+            ]
+        )
+        
+        enhanced_issue_body = analysis_response.choices[0].message.content
+        
+        # Now create the GitHub issue with enhanced content
+        print(f"Creating GitHub issue with enhanced content")
+        issue_response = openai.chat.completions.create(
+            model="gpt-4o-2024-08-06",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant with access to GitHub tools. Create issues exactly as requested.",
+                },
+                {
+                    "role": "user",
+                    "content": f"Create a GitHub issue in snowcodeer's {repo_name} repository with title '{issue_title}' and this enhanced content: {enhanced_issue_body}",
+                },
+            ],
+            tools=[github_create_issue_function],
+            tool_choice="required"
+        )
+        
+        # Handle the issue creation
+        issue_tool_call = issue_response.choices[0].message.tool_calls[0] if issue_response.choices[0].message.tool_calls else None
+        issue_url = ""
+        issue_number = ""
+        
+        if issue_tool_call:
+            issue_result = aci.handle_function_call(
+                issue_tool_call.function.name,
+                json.loads(issue_tool_call.function.arguments),
+                linked_account_owner_id='snowcodeer',
+            )
+            print("Issue creation result:", issue_result)
+            
+            # Extract issue URL and number from result
+            if isinstance(issue_result, dict):
+                if "data" in issue_result and isinstance(issue_result["data"], dict):
+                    issue_data = issue_result["data"]
+                    issue_url = issue_data.get("html_url", f"https://github.com/snowcodeer/{repo_name}/issues")
+                    issue_number = issue_data.get("number", "unknown")
+                elif "html_url" in issue_result:
+                    issue_url = issue_result["html_url"]
+                    issue_number = issue_result.get("number", "unknown")
+        
+        # Prepare response
+        result = {
+            "success": True,
+            "analysis_summary": f"Generated AI-enhanced issue analysis for {dependency_name or 'dependency issue'}",
+            "issue_created": bool(issue_url),
+            "issue_url": issue_url,
+            "issue_number": issue_number,
+            "repo_name": repo_name,
+            "issue_title": issue_title,
+            "dependency_name": dependency_name,
+            "enhanced_content": enhanced_issue_body[:500] + "..." if len(enhanced_issue_body) > 500 else enhanced_issue_body
+        }
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error creating GitHub issue with analysis: {e}")
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return {
+            "success": False,
+            "error": str(e),
+            "repo_name": repo_name
+        }
+
 @app.get("/")
 async def root():
     return {"message": "GitHub Repository Lister API"}
@@ -228,6 +415,41 @@ async def get_file_content_endpoint(repo_name: str):
         print(f"Error: {str(e)}")
         import traceback
         print("Full traceback:", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/create-issue")
+async def create_issue_endpoint(request: SimpleCreateIssueRequest):
+    """Endpoint to create a simple GitHub issue"""
+    try:
+        result = create_github_issue(
+            repo_name=request.repo_name,
+            issue_title=request.issue_title,
+            issue_description=request.issue_description,
+            labels=request.labels
+        )
+        return result
+
+    except Exception as e:
+        print(f"Error in create_issue_endpoint: {e}")
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/create-issue-with-analysis")
+async def create_issue_with_analysis_endpoint(request: CreateIssueRequest):
+    """
+    Endpoint to create a GitHub issue with web search analysis
+    """
+    try:
+        result = create_github_issue_with_analysis(
+            request.repo_name, 
+            request.issue_title, 
+            request.issue_description, 
+            request.dependency_name
+        )
+        return result
+    except Exception as e:
+        print(f"Error in create_issue_with_analysis_endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
