@@ -176,16 +176,6 @@ export function PackageInputs({
           </div>
         )
       })}
-
-      <div className="text-center mt-8">
-        <button 
-          className="px-8 py-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-500 hover:to-blue-500 rounded-lg text-lg font-semibold transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-          onClick={onAnalyzeAll}
-          disabled={isAnalyzing}
-        >
-          {isAnalyzing ? '🔄 Analyzing...' : '🚀 Analyze All Packages'}
-        </button>
-      </div>
     </section>
   )
 }

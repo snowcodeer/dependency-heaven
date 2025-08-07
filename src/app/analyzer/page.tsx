@@ -85,6 +85,7 @@ export default function Analyzer() {
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null)
+  const [showPackageInputs, setShowPackageInputs] = useState(true)
 
   // Load package data from localStorage if available (from dashboard)
   useEffect(() => {
@@ -93,6 +94,8 @@ export default function Analyzer() {
       try {
         const packageData = JSON.parse(savedPackage)
         setPackages([packageData])
+        // Hide the package inputs when coming from dashboard
+        setShowPackageInputs(false)
         // Clear from localStorage after loading
         localStorage.removeItem('analyzerPackage')
         // Auto-analyze the loaded package
@@ -406,21 +409,60 @@ export default function Analyzer() {
   return (
     <div className="min-h-screen p-8 bg-gradient-to-br from-black to-slate-900 text-white max-w-7xl mx-auto">
       <header className="text-center mb-8">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent mb-2">
-          🔍 Dependency Analyzer
-        </h1>
-        <p className="text-gray-400 text-lg">
-          Analyze multiple package.json files and visualize cross-project dependencies
-        </p>
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent mb-2">
+              🔍 Dependency Analyzer
+            </h1>
+            <p className="text-gray-400 text-lg">
+              Analyze multiple package.json files and visualize cross-project dependencies
+            </p>
+          </div>
+          
+          {/* Toggle Package Inputs Button */}
+          <button
+            onClick={() => setShowPackageInputs(!showPackageInputs)}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-300 flex items-center gap-2"
+          >
+            {showPackageInputs ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Hide Packages
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+                Show Packages
+              </>
+            )}
+          </button>
+        </div>
       </header>
 
-      <PackageInputs 
-        packages={packages}
-        onUpdatePackages={updatePackages}
-        onAnalyzeAll={handleAnalyzeAll}
-        isAnalyzing={isAnalyzing}
-        samplePackages={SAMPLE_PACKAGES}
-      />
+      {showPackageInputs && (
+        <PackageInputs 
+          packages={packages}
+          onUpdatePackages={updatePackages}
+          onAnalyzeAll={handleAnalyzeAll}
+          isAnalyzing={isAnalyzing}
+          samplePackages={SAMPLE_PACKAGES}
+        />
+      )}
+
+      {/* Analyze All Button - Always Visible */}
+      <div className="text-center mb-8">
+        <button 
+          className="px-8 py-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-500 hover:to-blue-500 rounded-lg text-lg font-semibold transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={handleAnalyzeAll}
+          disabled={isAnalyzing}
+        >
+          {isAnalyzing ? '🔄 Analyzing...' : '🚀 Analyze All Packages'}
+        </button>
+      </div>
 
       {combinedData ? (
         <AnalysisPanel 
