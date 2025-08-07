@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { PackageInputs } from '@/components/PackageInputs'
 import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { Package, AnalyzedPackage, CombinedData } from '@/types/package'
@@ -85,6 +85,25 @@ export default function Analyzer() {
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null)
+
+  // Load package data from localStorage if available (from dashboard)
+  useEffect(() => {
+    const savedPackage = localStorage.getItem('analyzerPackage')
+    if (savedPackage) {
+      try {
+        const packageData = JSON.parse(savedPackage)
+        setPackages([packageData])
+        // Clear from localStorage after loading
+        localStorage.removeItem('analyzerPackage')
+        // Auto-analyze the loaded package
+        setTimeout(() => {
+          handleAnalyzeAll()
+        }, 100)
+      } catch (error) {
+        console.error('Error loading package from localStorage:', error)
+      }
+    }
+  }, [])
 
   const analyzePackageData = useCallback((packageData: any, packageName: string): AnalyzedPackage => {
     const nodes: any[] = []
