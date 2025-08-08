@@ -2,9 +2,11 @@
 
 An intelligent dependency management platform that automatically scans GitHub repositories, analyzes security vulnerabilities, and creates actionable GitHub issues using AI-powered analysis.
 
-## App Preview
+## App Demo
 
-https://drive.google.com/file/d/1pclaaAK3MJZtJgRLXPUqFNppAnUi4YqH/view?usp=sharing
+Video link: https://drive.google.com/file/d/1pclaaAK3MJZtJgRLXPUqFNppAnUi4YqH/view?usp=sharing
+
+Screenshots:
 <img width="1440" height="900" alt="Screenshot 2025-08-08 at 11 51 47" src="https://github.com/user-attachments/assets/f7c02d67-5a10-4ad1-b404-60758a7e9409" />
 <img width="1440" height="900" alt="Screenshot 2025-08-08 at 11 34 41" src="https://github.com/user-attachments/assets/8631dff5-b5dc-4d03-957c-8c3dcfe660f3" />
 <img width="1440" height="900" alt="Screenshot 2025-08-08 at 11 30 47" src="https://github.com/user-attachments/assets/a202b154-0f1d-4ecd-b4d5-3fa58657762a" />
