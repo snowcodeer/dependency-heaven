@@ -236,6 +236,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ### **Deployment Options**
 
+**Note**: Requires ACI.dev account and API keys (OpenAI, GitHub, etc.). Uses explicit prompt to connect to my own repo due to non-deterministic response. 
+
 #### **Vercel (Frontend)**
 ```bash
 # Deploy frontend to Vercel
@@ -258,14 +260,6 @@ docker-compose up -d
 ## 📄 API Documentation
 
 When running the backend, visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API documentation powered by FastAPI's automatic OpenAPI generation.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
 
 ## 📝 License
 
