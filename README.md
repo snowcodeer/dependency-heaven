@@ -191,14 +191,6 @@ npm run dev
 - **Toggle Controls**: Show/hide interface elements for streamlined workflow
 - **Type Safety**: Full TypeScript coverage for robust development
 
-## 🏭 Production Deployment
-
-### **Frontend Build**
-```bash
-npm run build
-npm start
-```
-
 ### **Backend Production**
 ```bash
 # Using uvicorn for production
@@ -251,16 +243,6 @@ npm run build
 # Set environment variables: OPENAI_API_KEY, ACI credentials
 ```
 
-#### **Self-Hosted**
-```bash
-# Docker deployment (future)
-docker-compose up -d
-```
-
 ## 📄 API Documentation
 
 When running the backend, visit [http://localhost:8000/docs](http://localhost:8000/docs) for interactive API documentation powered by FastAPI's automatic OpenAPI generation.
-
-## 📝 License
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
